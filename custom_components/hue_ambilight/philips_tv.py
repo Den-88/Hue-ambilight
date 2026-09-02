@@ -90,6 +90,12 @@ class PhilipsTVClient:
         except requests.exceptions.Timeout:
             raise PhilipsTVOfflineError("Timeout connecting to TV")
         except requests.exceptions.HTTPError as err:
+            # Log the actual response body so we can see the TV's error message
+            try:
+                body = resp.text[:1000]
+            except Exception:  # noqa: BLE001
+                body = "<unreadable>"
+            _LOGGER.debug("HTTP %d from %s — response body: %s", resp.status_code, url, body)
             if resp.status_code == 401:
                 raise PhilipsTVAuthError("Authentication failed.") from err
             raise PhilipsTVError(f"HTTP error {resp.status_code}: {err}") from err
@@ -125,7 +131,6 @@ class PhilipsTVClient:
             auth_key: hex string from pair/request response
             timestamp: timestamp from pair/request response (int or str)
         """
-        # timestamp must be passed as-is (int or str) to match what TV expects
         signature = self._generate_signature(auth_key, timestamp, pin)
         _LOGGER.debug(
             "pair/grant: auth_key_len=%d timestamp=%s pin=%s sig=%s",
@@ -135,7 +140,8 @@ class PhilipsTVClient:
             "auth": {
                 "auth_AppId": "1",
                 "pin": pin,
-                "auth_timestamp": timestamp,
+                # Send as string — some firmware versions require string, not int
+                "auth_timestamp": str(timestamp),
                 "auth_signature": signature,
             },
             "device": {
@@ -146,6 +152,7 @@ class PhilipsTVClient:
                 "app_name": PAIR_DEVICE_NAME,
             },
         }
+        _LOGGER.debug("pair/grant payload: %s", payload)
         result = self._post("pair/grant", payload)
         if not result:
             raise PhilipsTVError("Empty response from pair/grant")
@@ -191,6 +198,11 @@ class PhilipsTVClient:
 
         # Message: timestamp (as string) concatenated with pin
         message = (str(timestamp) + str(pin)).encode("utf-8")
+
+        _LOGGER.debug(
+            "HMAC input: key_hex=%s... message=%s",
+            auth_key[:16], message,
+        )
 
         h = hmac.new(key, message, hashlib.sha1)
         return base64.b64encode(h.digest()).decode()
