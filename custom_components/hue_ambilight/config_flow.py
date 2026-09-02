@@ -56,6 +56,13 @@ STEP_PIN_SCHEMA = vol.Schema(
 )
 
 
+def _clean_list(val: Any) -> list[str]:
+    """Ensure value is a clean list of strings."""
+    if isinstance(val, list):
+        return [str(x) for x in val if x]
+    return []
+
+
 class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow for Hue Ambilight."""
 
@@ -154,7 +161,6 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_LIGHTS_LEFT: user_input.get(CONF_LIGHTS_LEFT, []),
                 CONF_LIGHTS_RIGHT: user_input.get(CONF_LIGHTS_RIGHT, []),
                 CONF_LIGHTS_TOP: user_input.get(CONF_LIGHTS_TOP, []),
-                CONF_LIGHTS_BOTTOM: user_input.get(CONF_LIGHTS_BOTTOM, []),
                 CONF_LIGHTS_ALL: user_input.get(CONF_LIGHTS_ALL, []),
                 CONF_LIGHTS: user_input.get(CONF_LIGHTS_ALL, []),
                 CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
@@ -179,7 +185,6 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_LIGHTS_LEFT, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_RIGHT, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_TOP, default=[]): light_select,
-                vol.Optional(CONF_LIGHTS_BOTTOM, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_ALL, default=[]): light_select,
             }
         )
@@ -195,11 +200,23 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> HueAmbilightOptionsFlow:
         """Return the options flow handler."""
-        return HueAmbilightOptionsFlow()
+        return HueAmbilightOptionsFlow(config_entry)
 
 
 class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
-    """Handle options (reconfigure lights, interval, sides, etc.)."""
+    """Handle options (reconfigure lights per zone)."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry | None = None) -> None:
+        """Initialize options flow."""
+        if config_entry is not None:
+            self._config_entry = config_entry
+
+    @property
+    def config_entry(self) -> config_entries.ConfigEntry:
+        """Return config entry safely."""
+        if getattr(self, "_config_entry", None) is not None:
+            return self._config_entry
+        return super().config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -208,7 +225,8 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current = {**self.config_entry.data, **self.config_entry.options}
+        entry = self.config_entry
+        current = {**entry.data, **entry.options} if entry else {}
 
         light_select = selector.EntitySelector(
             selector.EntitySelectorConfig(domain="light", multiple=True)
@@ -218,31 +236,27 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Optional(
                     CONF_LIGHTS_LEFT_BOTTOM,
-                    default=current.get(CONF_LIGHTS_LEFT_BOTTOM, []),
+                    default=_clean_list(current.get(CONF_LIGHTS_LEFT_BOTTOM)),
                 ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_RIGHT_BOTTOM,
-                    default=current.get(CONF_LIGHTS_RIGHT_BOTTOM, []),
+                    default=_clean_list(current.get(CONF_LIGHTS_RIGHT_BOTTOM)),
                 ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_LEFT,
-                    default=current.get(CONF_LIGHTS_LEFT, []),
+                    default=_clean_list(current.get(CONF_LIGHTS_LEFT)),
                 ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_RIGHT,
-                    default=current.get(CONF_LIGHTS_RIGHT, []),
+                    default=_clean_list(current.get(CONF_LIGHTS_RIGHT)),
                 ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_TOP,
-                    default=current.get(CONF_LIGHTS_TOP, []),
-                ): light_select,
-                vol.Optional(
-                    CONF_LIGHTS_BOTTOM,
-                    default=current.get(CONF_LIGHTS_BOTTOM, []),
+                    default=_clean_list(current.get(CONF_LIGHTS_TOP)),
                 ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_ALL,
-                    default=current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS, [])),
+                    default=_clean_list(current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS))),
                 ): light_select,
             }
         )
