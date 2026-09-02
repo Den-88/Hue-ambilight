@@ -162,18 +162,34 @@ class AmbilightCoordinator(DataUpdateCoordinator):
     async def _push_color_to_lights(
         self, lights: list[str], r: int, g: int, b: int
     ) -> None:
-        """Apply RGB color to specified light entities."""
-        if not lights or (r == 0 and g == 0 and b == 0):
+        """Apply RGB color and brightness to specified light entities."""
+        if not lights:
             return
 
-        # Apply brightness factor
-        if self.brightness_factor != 1.0:
-            r = min(255, int(r * self.brightness_factor))
-            g = min(255, int(g * self.brightness_factor))
-            b = min(255, int(b * self.brightness_factor))
+        # 1. Turn off lights when color is black (0, 0, 0)
+        if r == 0 and g == 0 and b == 0:
+            for light_entity_id in lights:
+                try:
+                    await self.hass.services.async_call(
+                        "light",
+                        "turn_off",
+                        {
+                            "entity_id": light_entity_id,
+                            "transition": self.transition,
+                        },
+                        blocking=False,
+                    )
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Failed to turn off light %s: %s", light_entity_id, err)
+            return
+
+        # 2. Calculate explicit brightness (1..255) using max channel & brightness_factor
+        max_c = max(r, g, b)
+        calc_brightness = min(255, max(1, int(max_c * self.brightness_factor)))
 
         service_data = {
             "rgb_color": [r, g, b],
+            "brightness": calc_brightness,
             "transition": self.transition,
         }
 
