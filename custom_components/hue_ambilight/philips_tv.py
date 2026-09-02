@@ -77,10 +77,17 @@ class PhilipsTVClient:
         except Exception as err:
             raise PhilipsTVError(f"Unexpected error: {err}") from err
 
-    def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    def _post(
+        self,
+        path: str,
+        data: dict[str, Any],
+        auth: HTTPDigestAuth | None = None,
+    ) -> dict[str, Any] | None:
+        """POST request. Uses instance credentials by default; pass auth= to override."""
         url = self._url(path)
+        auth_to_use = auth if auth is not None else self._auth()
         try:
-            resp = self._session.post(url, json=data, auth=self._auth(), timeout=self.timeout)
+            resp = self._session.post(url, json=data, auth=auth_to_use, timeout=self.timeout)
             resp.raise_for_status()
             if resp.content:
                 return resp.json()
@@ -140,7 +147,6 @@ class PhilipsTVClient:
             "auth": {
                 "auth_AppId": "1",
                 "pin": pin,
-                # Send as string — some firmware versions require string, not int
                 "auth_timestamp": str(timestamp),
                 "auth_signature": signature,
             },
@@ -153,7 +159,11 @@ class PhilipsTVClient:
             },
         }
         _LOGGER.debug("pair/grant payload: %s", payload)
-        result = self._post("pair/grant", payload)
+
+        # pair/grant requires Digest Auth using the auth_key from pair/request
+        # as both username AND password — this is Philips TV API v6 protocol
+        grant_auth = HTTPDigestAuth(auth_key, auth_key)
+        result = self._post("pair/grant", payload, auth=grant_auth)
         if not result:
             raise PhilipsTVError("Empty response from pair/grant")
         _LOGGER.debug("pair/grant response: %s", result)
