@@ -198,25 +198,13 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> HueAmbilightOptionsFlow:
+    ) -> config_entries.OptionsFlow:
         """Return the options flow handler."""
-        return HueAmbilightOptionsFlow(config_entry)
+        return HueAmbilightOptionsFlow()
 
 
 class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
     """Handle options (reconfigure lights per zone)."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry | None = None) -> None:
-        """Initialize options flow."""
-        if config_entry is not None:
-            self._config_entry = config_entry
-
-    @property
-    def config_entry(self) -> config_entries.ConfigEntry:
-        """Return config entry safely."""
-        if getattr(self, "_config_entry", None) is not None:
-            return self._config_entry
-        return super().config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -225,8 +213,7 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        entry = self.config_entry
-        current = {**entry.data, **entry.options} if entry else {}
+        current = {**self.config_entry.data, **self.config_entry.options}
 
         light_select = selector.EntitySelector(
             selector.EntitySelectorConfig(domain="light", multiple=True)
