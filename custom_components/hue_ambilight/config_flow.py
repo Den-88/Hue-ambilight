@@ -165,16 +165,9 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data=data,
             )
 
-        # Build list of available light entities
-        ent_reg = er.async_get(self.hass)
-        light_entities = [
-            selector.SelectOptionDict(value=e.entity_id, label=e.entity_id)
-            for e in ent_reg.entities.values()
-            if e.domain == "light"
-        ]
-
-        light_select = selector.selector(
-            {"select": {"options": light_entities, "multiple": True}}
+        # Build native HA EntitySelector for lights
+        light_select = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="light", multiple=True)
         )
 
         schema = vol.Schema(
@@ -207,22 +200,11 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> HueAmbilightOptionsFlow:
         """Return the options flow handler."""
-        return HueAmbilightOptionsFlow(config_entry)
+        return HueAmbilightOptionsFlow()
 
 
 class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
     """Handle options (reconfigure lights, interval, sides, etc.)."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self._config_entry = config_entry
-
-    @property
-    def config_entry(self) -> config_entries.ConfigEntry:
-        """Return config entry."""
-        if hasattr(self, "_config_entry") and self._config_entry is not None:
-            return self._config_entry
-        return super().config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -233,31 +215,48 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
 
         current = {**self.config_entry.data, **self.config_entry.options}
 
-        ent_reg = er.async_get(self.hass)
-        light_entities = [
-            selector.SelectOptionDict(value=e.entity_id, label=e.entity_id)
-            for e in ent_reg.entities.values()
-            if e.domain == "light"
-        ]
-
-        light_select = selector.selector(
-            {"select": {"options": light_entities, "multiple": True}}
+        light_select = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="light", multiple=True)
         )
 
         schema = vol.Schema(
             {
-                vol.Optional(CONF_LIGHTS_LEFT, default=current.get(CONF_LIGHTS_LEFT, [])): light_select,
-                vol.Optional(CONF_LIGHTS_RIGHT, default=current.get(CONF_LIGHTS_RIGHT, [])): light_select,
-                vol.Optional(CONF_LIGHTS_TOP, default=current.get(CONF_LIGHTS_TOP, [])): light_select,
-                vol.Optional(CONF_LIGHTS_BOTTOM, default=current.get(CONF_LIGHTS_BOTTOM, [])): light_select,
-                vol.Optional(CONF_LIGHTS_ALL, default=current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS, []))): light_select,
-                vol.Optional(CONF_SCAN_INTERVAL, default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(
+                vol.Optional(
+                    CONF_LIGHTS_LEFT,
+                    default=current.get(CONF_LIGHTS_LEFT, []),
+                ): light_select,
+                vol.Optional(
+                    CONF_LIGHTS_RIGHT,
+                    default=current.get(CONF_LIGHTS_RIGHT, []),
+                ): light_select,
+                vol.Optional(
+                    CONF_LIGHTS_TOP,
+                    default=current.get(CONF_LIGHTS_TOP, []),
+                ): light_select,
+                vol.Optional(
+                    CONF_LIGHTS_BOTTOM,
+                    default=current.get(CONF_LIGHTS_BOTTOM, []),
+                ): light_select,
+                vol.Optional(
+                    CONF_LIGHTS_ALL,
+                    default=current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS, [])),
+                ): light_select,
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): vol.All(
                     vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS)
                 ),
-                vol.Optional(CONF_TRANSITION, default=current.get(CONF_TRANSITION, DEFAULT_TRANSITION)): vol.All(
+                vol.Optional(
+                    CONF_TRANSITION,
+                    default=current.get(CONF_TRANSITION, DEFAULT_TRANSITION),
+                ): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=10)
                 ),
-                vol.Optional(CONF_BRIGHTNESS_FACTOR, default=current.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR)): vol.All(
+                vol.Optional(
+                    CONF_BRIGHTNESS_FACTOR,
+                    default=current.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
+                ): vol.All(
                     vol.Coerce(float), vol.Range(min=0.1, max=2.0)
                 ),
             }
