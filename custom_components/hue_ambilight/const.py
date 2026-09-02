@@ -38,4 +38,4 @@ ATTR_COLOR_B = "b"
 ATTR_SIDES_COLORS = "sides_colors"
 ATTR_TV_ONLINE = "tv_online"
 
-PLATFORMS = ["switch", "sensor"]
+PLATFORMS = ["switch", "sensor", "number"]

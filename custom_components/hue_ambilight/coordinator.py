@@ -224,3 +224,11 @@ class AmbilightCoordinator(DataUpdateCoordinator):
     def update_brightness_factor(self, factor: float) -> None:
         """Update the brightness multiplier."""
         self.brightness_factor = factor
+
+    def update_scan_interval(self, interval_ms: int) -> None:
+        """Update scan interval dynamically in milliseconds."""
+        self.update_interval = timedelta(milliseconds=interval_ms)
+
+    def update_transition(self, transition: int) -> None:
+        """Update transition time in seconds."""
+        self.transition = transition

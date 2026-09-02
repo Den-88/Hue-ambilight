@@ -2,60 +2,80 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Philips TV",
-        "description": "Enter the IP address of your Philips Google TV. Make sure the TV is powered on and connected to the same network.",
+        "title": "Подключение к Philips TV",
+        "description": "Введите IP-адрес вашего Philips Google TV.",
         "data": {
-          "tv_ip": "TV IP Address",
-          "tv_port": "API Port (default: 1926)"
+          "tv_ip": "IP-адрес телевизора",
+          "tv_port": "Порт API (по умолчанию 1926)"
         }
       },
       "pair": {
-        "title": "Enter PIN from TV",
-        "description": "A PIN code should now be displayed on your Philips TV screen ({tv_ip}). Enter it below to complete pairing.",
+        "title": "Ввод PIN-кода сопряжения",
+        "description": "Введите PIN-код, который сейчас отображается на экране телевизора {tv_ip}.",
         "data": {
-          "pin": "PIN Code"
+          "pin": "PIN-код с экрана ТВ"
         }
       },
       "lights": {
-        "title": "Select Target Lights",
-        "description": "Choose which light entities will follow the Ambilight colors.",
+        "title": "Привязка ламп к зонам ТВ",
+        "description": "Распределите лампы по зонам экрана для создания объёмной подсветки.",
         "data": {
-          "lights": "Light Entities"
-        }
-      },
-      "settings": {
-        "title": "Advanced Settings",
-        "description": "Fine-tune synchronization behavior.",
-        "data": {
-          "scan_interval": "Polling interval (ms)",
-          "sides": "Screen sides to use",
-          "transition": "Color transition time (s)",
-          "brightness_factor": "Brightness factor (0.1–2.0)"
+          "lights_left": "💡 Лампы слева (Left)",
+          "lights_right": "💡 Лампы справа (Right)",
+          "lights_top": "💡 Лампы сверху (Top)",
+          "lights_bottom": "💡 Лампы снизу (Bottom)",
+          "lights_all": "🌐 Общие лампы (Все зоны)",
+          "scan_interval": "⚡ Частота опроса (мс)",
+          "transition": "🎨 Плавность перехода (сек)",
+          "brightness_factor": "☀️ Множитель яркости"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to TV. Check the IP address and ensure the TV is on.",
-      "pair_request_failed": "Failed to start pairing. Try again.",
-      "invalid_pin": "Invalid PIN. Please check the PIN shown on your TV screen.",
-      "pair_grant_failed": "Pairing failed. Please try again.",
-      "no_lights_selected": "Please select at least one light entity."
-    },
-    "abort": {
-      "already_configured": "This TV is already configured."
+      "cannot_connect": "Не удалось подключиться к телевизору. Убедитесь, что он включён и в той же сети.",
+      "invalid_pin": "Неверный PIN-код. Попробуйте снова.",
+      "pair_request_failed": "Не удалось запросить сопряжение от ТВ.",
+      "pair_grant_failed": "Ошибка подтверждения сопряжения."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Ambilight Sync Options",
+        "title": "Настройка зон и ламп Hue Ambilight",
+        "description": "Выберите, какие лампы должны синхронизироваться с каждой из сторон телевизора.",
         "data": {
-          "lights": "Light Entities",
-          "scan_interval": "Polling interval (ms)",
-          "sides": "Screen sides to use",
-          "transition": "Color transition time (s)",
-          "brightness_factor": "Brightness factor"
+          "lights_left": "💡 Лампы слева (Left)",
+          "lights_right": "💡 Лампы справа (Right)",
+          "lights_top": "💡 Лампы сверху (Top)",
+          "lights_bottom": "💡 Лампы снизу (Bottom)",
+          "lights_all": "🌐 Общие лампы (Все зоны)",
+          "scan_interval": "⚡ Частота опроса (мс)",
+          "transition": "🎨 Плавность перехода (сек)",
+          "brightness_factor": "☀️ Множитель яркости"
         }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "ambilight_sync": {
+        "name": "Синхронизация Ambilight"
+      }
+    },
+    "sensor": {
+      "ambilight_color": {
+        "name": "Цвет Ambilight"
+      }
+    },
+    "number": {
+      "scan_interval": {
+        "name": "Частота опроса (мс)"
+      },
+      "transition": {
+        "name": "Плавность перехода (сек)"
+      },
+      "brightness_factor": {
+        "name": "Множитель яркости"
       }
     }
   }
