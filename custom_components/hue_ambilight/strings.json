@@ -48,10 +48,7 @@
           "lights_right": "💡 Лампы справа (Right)",
           "lights_top": "💡 Лампы сверху (Top)",
           "lights_bottom": "💡 Лампы снизу (Bottom)",
-          "lights_all": "🌐 Общие лампы (Все зоны)",
-          "scan_interval": "⚡ Частота опроса (мс)",
-          "transition": "🎨 Плавность перехода (сек)",
-          "brightness_factor": "☀️ Множитель яркости"
+          "lights_all": "🌐 Общие лампы (Все зоны)"
         }
       }
     }

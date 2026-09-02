@@ -112,9 +112,9 @@ class AmbilightTransitionNumber(AmbilightBaseNumber):
         key="transition",
         name="Transition (sec)",
         icon="mdi:transition",
-        native_min_value=0,
-        native_max_value=10,
-        native_step=1,
+        native_min_value=0.0,
+        native_max_value=5.0,
+        native_step=0.1,
         native_unit_of_measurement="s",
         mode=NumberMode.SLIDER,
     )
@@ -127,13 +127,13 @@ class AmbilightTransitionNumber(AmbilightBaseNumber):
     def native_value(self) -> float:
         """Return current transition in seconds."""
         cfg = {**self._entry.data, **self._entry.options}
-        return float(cfg.get(CONF_TRANSITION, DEFAULT_TRANSITION))
+        return round(float(cfg.get(CONF_TRANSITION, DEFAULT_TRANSITION)), 1)
 
     async def async_set_native_value(self, value: float) -> None:
-        """Update transition time."""
-        val_int = int(value)
-        self.coordinator.update_transition(val_int)
-        await self._async_save_option(CONF_TRANSITION, val_int)
+        """Update transition time in tenths of a second."""
+        val_float = round(float(value), 1)
+        self.coordinator.update_transition(val_float)
+        await self._async_save_option(CONF_TRANSITION, val_float)
 
 
 class AmbilightBrightnessFactorNumber(AmbilightBaseNumber):

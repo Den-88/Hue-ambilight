@@ -241,24 +241,6 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
                     CONF_LIGHTS_ALL,
                     default=current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS, [])),
                 ): light_select,
-                vol.Optional(
-                    CONF_SCAN_INTERVAL,
-                    default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                ): vol.All(
-                    vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS)
-                ),
-                vol.Optional(
-                    CONF_TRANSITION,
-                    default=current.get(CONF_TRANSITION, DEFAULT_TRANSITION),
-                ): vol.All(
-                    vol.Coerce(int), vol.Range(min=0, max=10)
-                ),
-                vol.Optional(
-                    CONF_BRIGHTNESS_FACTOR,
-                    default=current.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
-                ): vol.All(
-                    vol.Coerce(float), vol.Range(min=0.1, max=2.0)
-                ),
             }
         )
 

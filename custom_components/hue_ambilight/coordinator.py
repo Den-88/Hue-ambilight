@@ -51,7 +51,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         scan_interval_ms: int,
         sides: list[str],
         target_lights: list[str],
-        transition: int,
+        transition: float,
         brightness_factor: float,
         lights_left: list[str] | None = None,
         lights_right: list[str] | None = None,
