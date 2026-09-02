@@ -49,7 +49,6 @@ class PhilipsTVClient:
         self._session.verify = False  # Philips TV uses self-signed certs
 
         # Suppress InsecureRequestWarning
-        import urllib3
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def _url(self, path: str) -> str:
@@ -97,12 +96,15 @@ class PhilipsTVClient:
         except requests.exceptions.Timeout:
             raise PhilipsTVOfflineError("Timeout connecting to TV")
         except requests.exceptions.HTTPError as err:
-            # Log the actual response body so we can see the TV's error message
+            # Log the actual response body AND headers to diagnose auth requirements
             try:
-                body = resp.text[:1000]
+                body = resp.text[:500]
             except Exception:  # noqa: BLE001
                 body = "<unreadable>"
-            _LOGGER.debug("HTTP %d from %s — response body: %s", resp.status_code, url, body)
+            _LOGGER.debug(
+                "HTTP %d from %s\n  Headers: %s\n  Body: %s",
+                resp.status_code, url, dict(resp.headers), body,
+            )
             if resp.status_code == 401:
                 raise PhilipsTVAuthError("Authentication failed.") from err
             raise PhilipsTVError(f"HTTP error {resp.status_code}: {err}") from err
@@ -111,7 +113,7 @@ class PhilipsTVClient:
     # Pairing
     # ------------------------------------------------------------------
 
-    def pair_request(self) -> dict[str, Any]:
+    def pair_request(self) -> tuple[str, Any]:
         """Step 1: request a PIN to be shown on the TV screen."""
         payload = {
             "scope": ["read", "write", "control"],
@@ -127,7 +129,13 @@ class PhilipsTVClient:
         if not result:
             raise PhilipsTVError("Empty response from pair/request")
         _LOGGER.debug("pair/request response: %s", result)
-        return result
+
+        auth_key = result.get("auth_key")
+        timestamp = result.get("timestamp")
+        if not auth_key or timestamp is None:
+            raise PhilipsTVError(f"Invalid pair/request response: {result}")
+
+        return str(auth_key), timestamp
 
     def pair_grant(self, pin: str, auth_key: str, timestamp: Any) -> tuple[str, str]:
         """
@@ -138,16 +146,16 @@ class PhilipsTVClient:
             auth_key: hex string from pair/request response
             timestamp: timestamp from pair/request response (int or str)
         """
-        signature = self._generate_signature(auth_key, timestamp, pin)
+        signature = self._generate_signature(timestamp, pin)
         _LOGGER.debug(
             "pair/grant: auth_key_len=%d timestamp=%s pin=%s sig=%s",
             len(auth_key), timestamp, pin, signature,
         )
         payload = {
             "auth": {
-                "auth_AppId": "1",
+                "auth_appId": "1",
                 "pin": pin,
-                "auth_timestamp": str(timestamp),
+                "auth_timestamp": timestamp,
                 "auth_signature": signature,
             },
             "device": {
@@ -160,61 +168,24 @@ class PhilipsTVClient:
         }
         _LOGGER.debug("pair/grant payload: %s", payload)
 
-        # pair/grant requires Digest Auth using the auth_key from pair/request
-        # as both username AND password — this is Philips TV API v6 protocol
-        grant_auth = HTTPDigestAuth(auth_key, auth_key)
+        # pair/grant Digest Auth username is PAIR_DEVICE_ID, password is auth_key hex
+        grant_auth = HTTPDigestAuth(PAIR_DEVICE_ID, auth_key)
         result = self._post("pair/grant", payload, auth=grant_auth)
         if not result:
             raise PhilipsTVError("Empty response from pair/grant")
         _LOGGER.debug("pair/grant response: %s", result)
 
-        # Try standard structure first, then fallback locations
+        # Credentials returned are (PAIR_DEVICE_ID, auth_key)
         device = result.get("device", {})
-        username = device.get("auth_key") or result.get("auth_key", "")
-        password = device.get("id") or device.get("auth_key", "")
-
-        # Some firmware versions return credentials at top level
-        if not username:
-            username = result.get("auth_key", "")
-        if not password:
-            password = result.get("id", "")
-
-        if not username:
-            raise PhilipsTVError(f"Could not extract credentials from pair/grant: {result}")
-
-        # If password is same as username, use device ID as password
-        if not password or password == username:
-            password = PAIR_DEVICE_ID
+        username = device.get("id") or PAIR_DEVICE_ID
+        password = device.get("auth_key") or auth_key
 
         return username, password
 
-    def _generate_signature(self, auth_key: str, timestamp: Any, pin: str) -> str:
-        """Generate HMAC-SHA1 signature for pairing.
-
-        The HMAC key is the raw bytes of the auth_key hex string.
-        The message is str(timestamp) + pin.
-        """
-        import hashlib
-        import hmac
-        import base64
-
-        # auth_key is always a hex string of any length — decode to raw bytes
-        try:
-            key = bytes.fromhex(auth_key)
-        except ValueError:
-            # Fallback: use raw UTF-8 bytes if not valid hex
-            _LOGGER.warning("auth_key is not a valid hex string, using raw bytes")
-            key = auth_key.encode("utf-8")
-
-        # Message: timestamp (as string) concatenated with pin
+    def _generate_signature(self, timestamp: Any, pin: str) -> str:
+        """Generate HMAC-SHA1 signature using fixed AUTH_SHARED_KEY."""
         message = (str(timestamp) + str(pin)).encode("utf-8")
-
-        _LOGGER.debug(
-            "HMAC input: key_hex=%s... message=%s",
-            auth_key[:16], message,
-        )
-
-        h = hmac.new(key, message, hashlib.sha1)
+        h = hmac.new(AUTH_SHARED_KEY, message, hashlib.sha1)
         return base64.b64encode(h.digest()).decode()
 
     # ------------------------------------------------------------------
