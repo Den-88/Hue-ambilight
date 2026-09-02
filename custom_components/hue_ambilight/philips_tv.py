@@ -1,0 +1,271 @@
+"""Philips TV JointSpace API client for Ambilight."""
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any
+
+import requests
+from requests.auth import HTTPDigestAuth
+
+_LOGGER = logging.getLogger(__name__)
+
+API_BASE = "https://{host}:{port}/{version}"
+PAIR_DEVICE_NAME = "HomeAssistant"
+PAIR_DEVICE_ID = "homeassistant_hue_ambilight"
+
+
+class PhilipsTVError(Exception):
+    """Base exception for Philips TV API errors."""
+
+
+class PhilipsTVAuthError(PhilipsTVError):
+    """Authentication failed."""
+
+
+class PhilipsTVOfflineError(PhilipsTVError):
+    """TV is offline or unreachable."""
+
+
+class PhilipsTVClient:
+    """Client for the Philips TV JointSpace API (v6, HTTPS, Digest Auth)."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int = 1926,
+        api_version: int = 6,
+        username: str | None = None,
+        password: str | None = None,
+        timeout: float = 3.0,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.api_version = api_version
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+        self._session = requests.Session()
+        self._session.verify = False  # Philips TV uses self-signed certs
+
+        # Suppress InsecureRequestWarning
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    def _url(self, path: str) -> str:
+        return f"https://{self.host}:{self.port}/{self.api_version}/{path.lstrip('/')}"
+
+    def _auth(self) -> HTTPDigestAuth | None:
+        if self.username and self.password:
+            return HTTPDigestAuth(self.username, self.password)
+        return None
+
+    def _get(self, path: str) -> dict[str, Any]:
+        url = self._url(path)
+        try:
+            resp = self._session.get(url, auth=self._auth(), timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.ConnectionError as err:
+            raise PhilipsTVOfflineError(f"Cannot connect to TV at {self.host}: {err}") from err
+        except requests.exceptions.Timeout as err:
+            raise PhilipsTVOfflineError(f"Timeout connecting to TV at {self.host}") from err
+        except requests.exceptions.HTTPError as err:
+            if resp.status_code == 401:
+                raise PhilipsTVAuthError("Authentication failed. Re-pair the TV.") from err
+            raise PhilipsTVError(f"HTTP error {resp.status_code}: {err}") from err
+        except Exception as err:
+            raise PhilipsTVError(f"Unexpected error: {err}") from err
+
+    def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any] | None:
+        url = self._url(path)
+        try:
+            resp = self._session.post(url, json=data, auth=self._auth(), timeout=self.timeout)
+            resp.raise_for_status()
+            if resp.content:
+                return resp.json()
+            return None
+        except requests.exceptions.ConnectionError as err:
+            raise PhilipsTVOfflineError(f"Cannot connect to TV at {self.host}: {err}") from err
+        except requests.exceptions.Timeout:
+            raise PhilipsTVOfflineError("Timeout connecting to TV")
+        except requests.exceptions.HTTPError as err:
+            if resp.status_code == 401:
+                raise PhilipsTVAuthError("Authentication failed.") from err
+            raise PhilipsTVError(f"HTTP error {resp.status_code}: {err}") from err
+
+    # ------------------------------------------------------------------
+    # Pairing
+    # ------------------------------------------------------------------
+
+    def pair_request(self) -> dict[str, Any]:
+        """Step 1: request a PIN to be shown on the TV screen."""
+        payload = {
+            "scope": ["read", "write", "control"],
+            "device": {
+                "app_id": PAIR_DEVICE_ID,
+                "id": PAIR_DEVICE_ID,
+                "device_name": PAIR_DEVICE_NAME,
+                "type": "native",
+                "app_name": PAIR_DEVICE_NAME,
+            },
+        }
+        result = self._post("pair/request", payload)
+        if not result:
+            raise PhilipsTVError("Empty response from pair/request")
+        return result
+
+    def pair_grant(self, pin: str, auth_key: str, timestamp: str) -> tuple[str, str]:
+        """Step 2: confirm PIN and receive credentials."""
+        payload = {
+            "auth": {
+                "auth_AppId": "1",
+                "pin": pin,
+                "auth_timestamp": timestamp,
+                "auth_signature": self._generate_signature(auth_key, timestamp, pin),
+            },
+            "device": {
+                "app_id": PAIR_DEVICE_ID,
+                "id": PAIR_DEVICE_ID,
+                "device_name": PAIR_DEVICE_NAME,
+                "type": "native",
+                "app_name": PAIR_DEVICE_NAME,
+            },
+        }
+        result = self._post("pair/grant", payload)
+        if not result:
+            raise PhilipsTVError("Empty response from pair/grant")
+        username = result.get("device", {}).get("auth_key", "")
+        password = result.get("device", {}).get("id", "")
+        if not username or not password:
+            raise PhilipsTVError(f"Invalid pair/grant response: {result}")
+        return username, password
+
+    def _generate_signature(self, auth_key: str, timestamp: str, pin: str) -> str:
+        """Generate HMAC-SHA1 signature for pairing."""
+        import hashlib
+        import hmac
+        import base64
+
+        key = bytes.fromhex(auth_key) if len(auth_key) == 64 else auth_key.encode()
+        message = f"{timestamp}{pin}".encode()
+        signature = hmac.new(key, message, hashlib.sha1).digest()
+        return base64.b64encode(signature).decode()
+
+    # ------------------------------------------------------------------
+    # System info
+    # ------------------------------------------------------------------
+
+    def get_system_info(self) -> dict[str, Any]:
+        """Get TV system information (model, api_version, etc.)."""
+        return self._get("system")
+
+    def is_online(self) -> bool:
+        """Check if the TV is reachable."""
+        try:
+            self.get_system_info()
+            return True
+        except PhilipsTVError:
+            return False
+
+    # ------------------------------------------------------------------
+    # Ambilight
+    # ------------------------------------------------------------------
+
+    def get_ambilight_topology(self) -> dict[str, Any]:
+        """Get the ambilight topology (number of pixels per side)."""
+        return self._get("ambilight/topology")
+
+    def get_ambilight_processed(self) -> dict[str, Any]:
+        """Get processed ambilight colors (post-processing, what LEDs show)."""
+        return self._get("ambilight/processed")
+
+    def get_ambilight_measured(self) -> dict[str, Any]:
+        """Get measured ambilight colors (raw from screen image)."""
+        return self._get("ambilight/measured")
+
+    def get_ambilight_power(self) -> dict[str, Any]:
+        """Get ambilight power state."""
+        return self._get("ambilight/power")
+
+    def get_ambilight_mode(self) -> dict[str, Any]:
+        """Get current ambilight mode."""
+        return self._get("ambilight/mode")
+
+
+def parse_ambilight_colors(
+    data: dict[str, Any],
+    sides: list[str] | None = None,
+) -> dict[str, tuple[int, int, int]]:
+    """
+    Parse ambilight API response into per-side average RGB colors.
+
+    Args:
+        data: Response from /ambilight/processed or /ambilight/measured
+        sides: Which sides to include (default: all found in data)
+
+    Returns:
+        Dict mapping side name → average (r, g, b)
+    """
+    result: dict[str, tuple[int, int, int]] = {}
+
+    # Support both layer1 and flat structures
+    layer = data.get("layer1", data)
+
+    for side, pixels in layer.items():
+        if sides and side not in sides:
+            continue
+        if not isinstance(pixels, dict):
+            continue
+
+        # Pixels can be {r, g, b} directly (single pixel)
+        # or {"0": {r,g,b}, "1": {r,g,b}, ...} (multiple pixels)
+        rgb_values = _extract_rgb_list(pixels)
+        if rgb_values:
+            avg_r = int(sum(c[0] for c in rgb_values) / len(rgb_values))
+            avg_g = int(sum(c[1] for c in rgb_values) / len(rgb_values))
+            avg_b = int(sum(c[2] for c in rgb_values) / len(rgb_values))
+            result[side] = (avg_r, avg_g, avg_b)
+
+    return result
+
+
+def _extract_rgb_list(pixels: dict) -> list[tuple[int, int, int]]:
+    """Extract list of (r, g, b) tuples from pixel data."""
+    # Case 1: direct {r, g, b}
+    if "r" in pixels and "g" in pixels and "b" in pixels:
+        return [(pixels["r"], pixels["g"], pixels["b"])]
+
+    # Case 2: {"0": {r,g,b}, "1": {r,g,b}, ...}
+    result = []
+    for key, value in pixels.items():
+        if isinstance(value, dict) and "r" in value:
+            result.append((value["r"], value["g"], value["b"]))
+    return result
+
+
+def average_colors(
+    side_colors: dict[str, tuple[int, int, int]],
+    sides: list[str] | None = None,
+) -> tuple[int, int, int]:
+    """
+    Compute a single average RGB color from multiple sides.
+
+    Args:
+        side_colors: Dict of side → (r, g, b)
+        sides: Which sides to include (default: all)
+
+    Returns:
+        Average (r, g, b)
+    """
+    colors = [
+        v for k, v in side_colors.items()
+        if sides is None or k in sides
+    ]
+    if not colors:
+        return (0, 0, 0)
+
+    r = int(sum(c[0] for c in colors) / len(colors))
+    g = int(sum(c[1] for c in colors) / len(colors))
+    b = int(sum(c[2] for c in colors) / len(colors))
+    return (r, g, b)

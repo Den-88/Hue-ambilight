@@ -1,0 +1,12 @@
+{
+  "domain": "hue_ambilight",
+  "name": "Hue Ambilight (Philips TV)",
+  "version": "1.0.0",
+  "documentation": "https://github.com/your-username/Hue-ambilight",
+  "issue_tracker": "https://github.com/your-username/Hue-ambilight/issues",
+  "codeowners": ["@your-username"],
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "requirements": ["requests>=2.28.0"],
+  "dependencies": []
+}

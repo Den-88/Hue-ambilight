@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Philips TV",
+        "description": "Enter the IP address of your Philips Google TV. Make sure the TV is powered on and connected to the same network.",
+        "data": {
+          "tv_ip": "TV IP Address",
+          "tv_port": "API Port (default: 1926)"
+        }
+      },
+      "pair": {
+        "title": "Enter PIN from TV",
+        "description": "A PIN code should now be displayed on your Philips TV screen ({tv_ip}). Enter it below to complete pairing.",
+        "data": {
+          "pin": "PIN Code"
+        }
+      },
+      "lights": {
+        "title": "Select Target Lights",
+        "description": "Choose which light entities will follow the Ambilight colors.",
+        "data": {
+          "lights": "Light Entities"
+        }
+      },
+      "settings": {
+        "title": "Advanced Settings",
+        "description": "Fine-tune synchronization behavior.",
+        "data": {
+          "scan_interval": "Polling interval (ms)",
+          "sides": "Screen sides to use",
+          "transition": "Color transition time (s)",
+          "brightness_factor": "Brightness factor (0.1–2.0)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to TV. Check the IP address and ensure the TV is on.",
+      "pair_request_failed": "Failed to start pairing. Try again.",
+      "invalid_pin": "Invalid PIN. Please check the PIN shown on your TV screen.",
+      "pair_grant_failed": "Pairing failed. Please try again.",
+      "no_lights_selected": "Please select at least one light entity."
+    },
+    "abort": {
+      "already_configured": "This TV is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ambilight Sync Options",
+        "data": {
+          "lights": "Light Entities",
+          "scan_interval": "Polling interval (ms)",
+          "sides": "Screen sides to use",
+          "transition": "Color transition time (s)",
+          "brightness_factor": "Brightness factor"
+        }
+      }
+    }
+  }
+}
