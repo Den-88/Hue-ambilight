@@ -18,10 +18,11 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_LIGHTS,
+    CONF_LIGHTS_LEFT_BOTTOM,
+    CONF_LIGHTS_RIGHT_BOTTOM,
     CONF_LIGHTS_LEFT,
     CONF_LIGHTS_RIGHT,
     CONF_LIGHTS_TOP,
-    CONF_LIGHTS_BOTTOM,
     CONF_LIGHTS_ALL,
     CONF_SCAN_INTERVAL,
     CONF_SIDES,
@@ -32,7 +33,6 @@ from .const import (
     DEFAULT_SIDES,
     DEFAULT_TRANSITION,
     DEFAULT_BRIGHTNESS_FACTOR,
-    SIDES,
     MIN_SCAN_INTERVAL_MS,
     MAX_SCAN_INTERVAL_MS,
 )
@@ -137,6 +137,9 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_pin"
             except PhilipsTVError as err:
                 _LOGGER.error("Pairing grant failed: %s", err)
+                errors["base"] = "pair_grant_failed"
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error in pair step: %s", err)
                 errors["base"] = "pair_grant_failed"
 
         return self.async_show_form(
