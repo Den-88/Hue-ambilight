@@ -311,21 +311,21 @@ def parse_ambilight_pixels(data: dict[str, Any]) -> dict[str, dict[str, tuple[in
 
 
 def extract_corner_diodes(data: dict[str, Any]) -> dict[str, tuple[int, int, int]]:
-    """Extract bottom-most diode RGB colors for left and right sides."""
+    """Extract bottom-most diode RGB colors for left and right sides (index 0 is bottom)."""
     pixels = parse_ambilight_pixels(data)
     result: dict[str, tuple[int, int, int]] = {}
 
-    # Left bottom diode (highest numeric index on left side)
+    # Left bottom diode (index "0" is at the bottom of left side)
     left_p = pixels.get("left", {})
     if left_p:
         sorted_keys = sorted(left_p.keys(), key=lambda k: int(k) if str(k).isdigit() else 0)
-        result["left_bottom"] = left_p[sorted_keys[-1]]
+        result["left_bottom"] = left_p[sorted_keys[0]]
 
-    # Right bottom diode (highest numeric index on right side)
+    # Right bottom diode (index "0" is at the bottom of right side)
     right_p = pixels.get("right", {})
     if right_p:
         sorted_keys = sorted(right_p.keys(), key=lambda k: int(k) if str(k).isdigit() else 0)
-        result["right_bottom"] = right_p[sorted_keys[-1]]
+        result["right_bottom"] = right_p[sorted_keys[0]]
 
     return result
 
