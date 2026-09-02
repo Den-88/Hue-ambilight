@@ -81,9 +81,14 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client = PhilipsTVClient(self._tv_ip, self._tv_port)
             try:
                 result = await self.hass.async_add_executor_job(client.pair_request)
+                # Preserve original type (timestamp may be int or str depending on firmware)
                 self._pair_auth_key = result.get("auth_key", "")
-                self._pair_timestamp = result.get("timestamp", "")
+                self._pair_timestamp = result.get("timestamp", 0)
                 self._client = client
+                _LOGGER.debug(
+                    "pair/request OK: auth_key_len=%d timestamp=%s",
+                    len(self._pair_auth_key), self._pair_timestamp,
+                )
                 return await self.async_step_pair()
             except PhilipsTVOfflineError:
                 errors["base"] = "cannot_connect"

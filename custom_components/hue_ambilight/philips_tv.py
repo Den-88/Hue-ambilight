@@ -113,16 +113,30 @@ class PhilipsTVClient:
         result = self._post("pair/request", payload)
         if not result:
             raise PhilipsTVError("Empty response from pair/request")
+        _LOGGER.debug("pair/request response: %s", result)
         return result
 
-    def pair_grant(self, pin: str, auth_key: str, timestamp: str) -> tuple[str, str]:
-        """Step 2: confirm PIN and receive credentials."""
+    def pair_grant(self, pin: str, auth_key: str, timestamp: Any) -> tuple[str, str]:
+        """
+        Step 2: confirm PIN and receive credentials.
+
+        Args:
+            pin: PIN code shown on TV screen
+            auth_key: hex string from pair/request response
+            timestamp: timestamp from pair/request response (int or str)
+        """
+        # timestamp must be passed as-is (int or str) to match what TV expects
+        signature = self._generate_signature(auth_key, timestamp, pin)
+        _LOGGER.debug(
+            "pair/grant: auth_key_len=%d timestamp=%s pin=%s sig=%s",
+            len(auth_key), timestamp, pin, signature,
+        )
         payload = {
             "auth": {
                 "auth_AppId": "1",
                 "pin": pin,
                 "auth_timestamp": timestamp,
-                "auth_signature": self._generate_signature(auth_key, timestamp, pin),
+                "auth_signature": signature,
             },
             "device": {
                 "app_id": PAIR_DEVICE_ID,
@@ -135,22 +149,51 @@ class PhilipsTVClient:
         result = self._post("pair/grant", payload)
         if not result:
             raise PhilipsTVError("Empty response from pair/grant")
-        username = result.get("device", {}).get("auth_key", "")
-        password = result.get("device", {}).get("id", "")
-        if not username or not password:
-            raise PhilipsTVError(f"Invalid pair/grant response: {result}")
+        _LOGGER.debug("pair/grant response: %s", result)
+
+        # Try standard structure first, then fallback locations
+        device = result.get("device", {})
+        username = device.get("auth_key") or result.get("auth_key", "")
+        password = device.get("id") or device.get("auth_key", "")
+
+        # Some firmware versions return credentials at top level
+        if not username:
+            username = result.get("auth_key", "")
+        if not password:
+            password = result.get("id", "")
+
+        if not username:
+            raise PhilipsTVError(f"Could not extract credentials from pair/grant: {result}")
+
+        # If password is same as username, use device ID as password
+        if not password or password == username:
+            password = PAIR_DEVICE_ID
+
         return username, password
 
-    def _generate_signature(self, auth_key: str, timestamp: str, pin: str) -> str:
-        """Generate HMAC-SHA1 signature for pairing."""
+    def _generate_signature(self, auth_key: str, timestamp: Any, pin: str) -> str:
+        """Generate HMAC-SHA1 signature for pairing.
+
+        The HMAC key is the raw bytes of the auth_key hex string.
+        The message is str(timestamp) + pin.
+        """
         import hashlib
         import hmac
         import base64
 
-        key = bytes.fromhex(auth_key) if len(auth_key) == 64 else auth_key.encode()
-        message = f"{timestamp}{pin}".encode()
-        signature = hmac.new(key, message, hashlib.sha1).digest()
-        return base64.b64encode(signature).decode()
+        # auth_key is always a hex string of any length — decode to raw bytes
+        try:
+            key = bytes.fromhex(auth_key)
+        except ValueError:
+            # Fallback: use raw UTF-8 bytes if not valid hex
+            _LOGGER.warning("auth_key is not a valid hex string, using raw bytes")
+            key = auth_key.encode("utf-8")
+
+        # Message: timestamp (as string) concatenated with pin
+        message = (str(timestamp) + str(pin)).encode("utf-8")
+
+        h = hmac.new(key, message, hashlib.sha1)
+        return base64.b64encode(h.digest()).decode()
 
     # ------------------------------------------------------------------
     # System info
