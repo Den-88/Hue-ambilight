@@ -1,18 +1,24 @@
-"""Philips TV JointSpace API client for Ambilight."""
-from __future__ import annotations
-
+import base64
+import hashlib
+import hmac
 import logging
 import time
 from typing import Any
 
 import requests
 from requests.auth import HTTPDigestAuth
+import urllib3
 
 _LOGGER = logging.getLogger(__name__)
 
 API_BASE = "https://{host}:{port}/{version}"
 PAIR_DEVICE_NAME = "HomeAssistant"
 PAIR_DEVICE_ID = "homeassistant_hue_ambilight"
+
+# Master shared key for Philips JointSpace HMAC signatures
+AUTH_SHARED_KEY = base64.b64decode(
+    "ZmVay1EQVFOaZhwQ4Kv81ypLAZNczV9sG4KkseXWn1NEk6cXmPKO/MCa9sryslvLCFMnNe4Z4CPXzToowvhHvA=="
+)
 
 
 class PhilipsTVError(Exception):
