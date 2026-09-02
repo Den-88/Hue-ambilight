@@ -226,6 +226,23 @@ class PhilipsTVClient:
         """Get measured ambilight colors (raw from screen image)."""
         return self._get("ambilight/measured")
 
+    def get_ambilight_colors(self) -> dict[str, Any]:
+        """
+        Get live ambilight colors.
+        Tries /ambilight/processed first; if all zero (e.g. physical LEDs are off),
+        falls back to /ambilight/measured (video content on TV screen).
+        """
+        try:
+            data = self.get_ambilight_processed()
+            if data:
+                colors = parse_ambilight_colors(data)
+                if any(r > 0 or g > 0 or b > 0 for r, g, b in colors.values()):
+                    return data
+        except Exception:  # noqa: BLE001
+            pass
+
+        return self.get_ambilight_measured()
+
     def get_ambilight_power(self) -> dict[str, Any]:
         """Get ambilight power state."""
         return self._get("ambilight/power")

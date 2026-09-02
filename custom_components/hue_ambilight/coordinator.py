@@ -85,7 +85,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         """Fetch latest ambilight color from TV."""
         try:
             raw = await self.hass.async_add_executor_job(
-                self.client.get_ambilight_processed
+                self.client.get_ambilight_colors
             )
         except PhilipsTVOfflineError:
             _LOGGER.debug("TV is offline, using last known color")
