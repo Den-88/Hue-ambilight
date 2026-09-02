@@ -71,10 +71,16 @@ class AmbilightColorSensor(CoordinatorEntity[AmbilightCoordinator], SensorEntity
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return detailed color data as attributes."""
         data = self.coordinator.data or {}
+        sides = data.get("sides_colors", {})
         return {
             "r": data.get("r", 0),
             "g": data.get("g", 0),
             "b": data.get("b", 0),
-            "sides_colors": data.get("sides_colors", {}),
+            "sides_colors": sides,
+            "left_color": sides.get("left"),
+            "right_color": sides.get("right"),
+            "top_color": sides.get("top"),
+            "bottom_color": sides.get("bottom"),
+            "pixels": data.get("pixels", {}),
             "tv_online": data.get("online", False),
         }

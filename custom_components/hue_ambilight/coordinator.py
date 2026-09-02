@@ -12,6 +12,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     DOMAIN,
     CONF_SIDES,
+    CONF_LIGHTS,
+    CONF_LIGHTS_LEFT,
+    CONF_LIGHTS_RIGHT,
+    CONF_LIGHTS_TOP,
+    CONF_LIGHTS_BOTTOM,
+    CONF_LIGHTS_ALL,
     DEFAULT_SIDES,
     ATTR_COLOR_HEX,
     ATTR_COLOR_R,
@@ -25,6 +31,7 @@ from .philips_tv import (
     PhilipsTVOfflineError,
     PhilipsTVError,
     parse_ambilight_colors,
+    parse_ambilight_pixels,
     average_colors,
 )
 
@@ -34,16 +41,6 @@ _LOGGER = logging.getLogger(__name__)
 class AmbilightCoordinator(DataUpdateCoordinator):
     """
     Manages polling the Philips TV Ambilight API and pushing colors to lights.
-
-    Data structure returned by _async_update_data:
-    {
-        "online": bool,
-        "r": int,
-        "g": int,
-        "b": int,
-        "color_hex": "#RRGGBB",
-        "sides_colors": {"left": (r,g,b), "right": (r,g,b), ...},
-    }
     """
 
     def __init__(
@@ -56,6 +53,11 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         target_lights: list[str],
         transition: int,
         brightness_factor: float,
+        lights_left: list[str] | None = None,
+        lights_right: list[str] | None = None,
+        lights_top: list[str] | None = None,
+        lights_bottom: list[str] | None = None,
+        lights_all: list[str] | None = None,
     ) -> None:
         self.client = client
         self.config_entry_id = config_entry_id
@@ -63,6 +65,11 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         self.target_lights = target_lights
         self.transition = transition
         self.brightness_factor = brightness_factor
+        self.lights_left = lights_left or []
+        self.lights_right = lights_right or []
+        self.lights_top = lights_top or []
+        self.lights_bottom = lights_bottom or []
+        self.lights_all = lights_all or target_lights or []
         self.sync_enabled = False
         self._last_color: tuple[int, int, int] = (0, 0, 0)
         self._last_data: dict[str, Any] = {
@@ -72,6 +79,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             "b": 0,
             "color_hex": "#000000",
             "sides_colors": {},
+            "pixels": {},
         }
 
         super().__init__(
@@ -95,6 +103,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             return {**self._last_data, "online": False}
 
         side_colors = parse_ambilight_colors(raw, self.sides)
+        pixels_data = parse_ambilight_pixels(raw)
         avg_r, avg_g, avg_b = average_colors(side_colors, self.sides)
 
         color_hex = f"#{avg_r:02x}{avg_g:02x}{avg_b:02x}"
@@ -106,20 +115,56 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             "b": avg_b,
             "color_hex": color_hex,
             "sides_colors": {k: list(v) for k, v in side_colors.items()},
+            "pixels": pixels_data,
         }
         self._last_data = data
         self._last_color = (avg_r, avg_g, avg_b)
 
-        # Push color to lamps if sync is enabled and color changed
-        if self.sync_enabled and self.target_lights:
-            await self._push_color_to_lights(avg_r, avg_g, avg_b)
+        # Push colors per zone if sync is enabled
+        if self.sync_enabled:
+            await self._push_zone_colors(side_colors, (avg_r, avg_g, avg_b))
 
         return data
 
-    async def _push_color_to_lights(self, r: int, g: int, b: int) -> None:
-        """Apply the ambilight color to all configured HA light entities."""
-        if r == 0 and g == 0 and b == 0:
-            return  # Skip black (TV may be in dark scene or off)
+    async def _push_zone_colors(
+        self,
+        side_colors: dict[str, tuple[int, int, int]],
+        avg_color: tuple[int, int, int],
+    ) -> None:
+        """Push corresponding side colors to configured zone light entities."""
+        # 1. Left zone
+        if self.lights_left and "left" in side_colors:
+            lr, lg, lb = side_colors["left"]
+            await self._push_color_to_lights(self.lights_left, lr, lg, lb)
+
+        # 2. Right zone
+        if self.lights_right and "right" in side_colors:
+            rr, rg, rb = side_colors["right"]
+            await self._push_color_to_lights(self.lights_right, rr, rg, rb)
+
+        # 3. Top zone
+        if self.lights_top and "top" in side_colors:
+            tr, tg, tb = side_colors["top"]
+            await self._push_color_to_lights(self.lights_top, tr, tg, tb)
+
+        # 4. Bottom zone
+        if self.lights_bottom and "bottom" in side_colors:
+            br, bg, bb = side_colors["bottom"]
+            await self._push_color_to_lights(self.lights_bottom, br, bg, bb)
+
+        # 5. All zone (or legacy target_lights)
+        all_target = self.lights_all or self.target_lights
+        if all_target:
+            # If specific zone lights were pushed, avoid re-pushing to them if they are in all_target
+            ar, ag, ab = avg_color
+            await self._push_color_to_lights(all_target, ar, ag, ab)
+
+    async def _push_color_to_lights(
+        self, lights: list[str], r: int, g: int, b: int
+    ) -> None:
+        """Apply RGB color to specified light entities."""
+        if not lights or (r == 0 and g == 0 and b == 0):
+            return
 
         # Apply brightness factor
         if self.brightness_factor != 1.0:
@@ -132,7 +177,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             "transition": self.transition,
         }
 
-        for light_entity_id in self.target_lights:
+        for light_entity_id in lights:
             try:
                 await self.hass.services.async_call(
                     "light",
@@ -149,16 +194,28 @@ class AmbilightCoordinator(DataUpdateCoordinator):
     def enable_sync(self) -> None:
         """Enable color synchronization to lights."""
         self.sync_enabled = True
-        _LOGGER.info("Ambilight sync enabled for lights: %s", self.target_lights)
+        _LOGGER.info("Ambilight sync enabled")
 
     def disable_sync(self) -> None:
         """Disable color synchronization to lights."""
         self.sync_enabled = False
         _LOGGER.info("Ambilight sync disabled")
 
-    def update_lights(self, lights: list[str]) -> None:
-        """Update the list of target light entities."""
-        self.target_lights = lights
+    def update_zone_lights(
+        self,
+        lights_left: list[str],
+        lights_right: list[str],
+        lights_top: list[str],
+        lights_bottom: list[str],
+        lights_all: list[str],
+    ) -> None:
+        """Update zone light entity mappings."""
+        self.lights_left = lights_left
+        self.lights_right = lights_right
+        self.lights_top = lights_top
+        self.lights_bottom = lights_bottom
+        self.lights_all = lights_all
+        self.target_lights = lights_all
 
     def update_sides(self, sides: list[str]) -> None:
         """Update which screen sides to use for averaging."""

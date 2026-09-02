@@ -289,6 +289,27 @@ def parse_ambilight_colors(
     return result
 
 
+def parse_ambilight_pixels(data: dict[str, Any]) -> dict[str, dict[str, tuple[int, int, int]]]:
+    """Parse raw ambilight response into per-side, per-diode RGB dictionary."""
+    result: dict[str, dict[str, tuple[int, int, int]]] = {}
+    layer = data.get("layer1", data)
+
+    for side, pixels in layer.items():
+        if not isinstance(pixels, dict):
+            continue
+        side_pixels: dict[str, tuple[int, int, int]] = {}
+        if "r" in pixels and "g" in pixels and "b" in pixels:
+            side_pixels["0"] = (pixels["r"], pixels["g"], pixels["b"])
+        else:
+            for idx_str, p_val in pixels.items():
+                if isinstance(p_val, dict) and "r" in p_val:
+                    side_pixels[str(idx_str)] = (p_val["r"], p_val["g"], p_val["b"])
+        if side_pixels:
+            result[side] = side_pixels
+
+    return result
+
+
 def _extract_rgb_list(pixels: dict) -> list[tuple[int, int, int]]:
     """Extract list of (r, g, b) tuples from pixel data."""
     # Case 1: direct {r, g, b}

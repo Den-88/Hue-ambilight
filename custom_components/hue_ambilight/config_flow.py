@@ -18,6 +18,11 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_LIGHTS,
+    CONF_LIGHTS_LEFT,
+    CONF_LIGHTS_RIGHT,
+    CONF_LIGHTS_TOP,
+    CONF_LIGHTS_BOTTOM,
+    CONF_LIGHTS_ALL,
     CONF_SCAN_INTERVAL,
     CONF_SIDES,
     CONF_TRANSITION,
@@ -137,17 +142,28 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_lights(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Step 3: Select target light entities."""
-        errors: dict[str, str] = {}
-
+        """Step 3: Select target light entities per zone."""
         if user_input is not None:
-            lights = user_input.get(CONF_LIGHTS, [])
-            if not lights:
-                errors["base"] = "no_lights_selected"
-            else:
-                return await self.async_step_settings(
-                    extra={"lights": lights}
-                )
+            data = {
+                CONF_TV_IP: self._tv_ip,
+                CONF_TV_PORT: self._tv_port,
+                CONF_USERNAME: self._client.username,
+                CONF_PASSWORD: self._client.password,
+                CONF_LIGHTS_LEFT: user_input.get(CONF_LIGHTS_LEFT, []),
+                CONF_LIGHTS_RIGHT: user_input.get(CONF_LIGHTS_RIGHT, []),
+                CONF_LIGHTS_TOP: user_input.get(CONF_LIGHTS_TOP, []),
+                CONF_LIGHTS_BOTTOM: user_input.get(CONF_LIGHTS_BOTTOM, []),
+                CONF_LIGHTS_ALL: user_input.get(CONF_LIGHTS_ALL, []),
+                CONF_LIGHTS: user_input.get(CONF_LIGHTS_ALL, []),
+                CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                CONF_SIDES: DEFAULT_SIDES,
+                CONF_TRANSITION: user_input.get(CONF_TRANSITION, DEFAULT_TRANSITION),
+                CONF_BRIGHTNESS_FACTOR: user_input.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
+            }
+            return self.async_create_entry(
+                title=f"Ambilight Sync ({self._tv_ip})",
+                data=data,
+            )
 
         # Build list of available light entities
         ent_reg = er.async_get(self.hass)
@@ -157,69 +173,19 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if e.domain == "light"
         ]
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_LIGHTS): selector.selector(
-                    {
-                        "select": {
-                            "options": light_entities,
-                            "multiple": True,
-                        }
-                    }
-                ),
-            }
+        light_select = selector.selector(
+            {"select": {"options": light_entities, "multiple": True}}
         )
-
-        return self.async_show_form(
-            step_id="lights",
-            data_schema=schema,
-            errors=errors,
-        )
-
-    async def async_step_settings(
-        self,
-        user_input: dict[str, Any] | None = None,
-        extra: dict[str, Any] | None = None,
-    ) -> FlowResult:
-        """Step 4: Advanced settings."""
-        if extra:
-            self._extra = extra
-
-        if user_input is not None:
-            data = {
-                CONF_TV_IP: self._tv_ip,
-                CONF_TV_PORT: self._tv_port,
-                CONF_USERNAME: self._client.username,
-                CONF_PASSWORD: self._client.password,
-                CONF_LIGHTS: self._extra.get("lights", []),
-                CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                CONF_SIDES: user_input.get(CONF_SIDES, DEFAULT_SIDES),
-                CONF_TRANSITION: user_input.get(CONF_TRANSITION, DEFAULT_TRANSITION),
-                CONF_BRIGHTNESS_FACTOR: user_input.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
-            }
-            return self.async_create_entry(
-                title=f"Ambilight Sync ({self._tv_ip})",
-                data=data,
-            )
-
-        sides_options = [
-            selector.SelectOptionDict(value=s, label=s.capitalize())
-            for s in SIDES
-        ]
 
         schema = vol.Schema(
             {
+                vol.Optional(CONF_LIGHTS_LEFT, default=[]): light_select,
+                vol.Optional(CONF_LIGHTS_RIGHT, default=[]): light_select,
+                vol.Optional(CONF_LIGHTS_TOP, default=[]): light_select,
+                vol.Optional(CONF_LIGHTS_BOTTOM, default=[]): light_select,
+                vol.Optional(CONF_LIGHTS_ALL, default=[]): light_select,
                 vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-                    vol.Coerce(int),
-                    vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS),
-                ),
-                vol.Optional(CONF_SIDES, default=DEFAULT_SIDES): selector.selector(
-                    {
-                        "select": {
-                            "options": sides_options,
-                            "multiple": True,
-                        }
-                    }
+                    vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS)
                 ),
                 vol.Optional(CONF_TRANSITION, default=DEFAULT_TRANSITION): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=10)
@@ -231,7 +197,7 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(
-            step_id="settings",
+            step_id="lights",
             data_schema=schema,
         )
 
@@ -253,11 +219,11 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Show options form."""
+        """Show options form when user clicks 'Configure' on the Device page."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current = self.config_entry.data
+        current = {**self.config_entry.data, **self.config_entry.options}
 
         ent_reg = er.async_get(self.hass)
         light_entities = [
@@ -265,21 +231,20 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
             for e in ent_reg.entities.values()
             if e.domain == "light"
         ]
-        sides_options = [
-            selector.SelectOptionDict(value=s, label=s.capitalize())
-            for s in SIDES
-        ]
+
+        light_select = selector.selector(
+            {"select": {"options": light_entities, "multiple": True}}
+        )
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_LIGHTS, default=current.get(CONF_LIGHTS, [])): selector.selector(
-                    {"select": {"options": light_entities, "multiple": True}}
-                ),
+                vol.Optional(CONF_LIGHTS_LEFT, default=current.get(CONF_LIGHTS_LEFT, [])): light_select,
+                vol.Optional(CONF_LIGHTS_RIGHT, default=current.get(CONF_LIGHTS_RIGHT, [])): light_select,
+                vol.Optional(CONF_LIGHTS_TOP, default=current.get(CONF_LIGHTS_TOP, [])): light_select,
+                vol.Optional(CONF_LIGHTS_BOTTOM, default=current.get(CONF_LIGHTS_BOTTOM, [])): light_select,
+                vol.Optional(CONF_LIGHTS_ALL, default=current.get(CONF_LIGHTS_ALL, current.get(CONF_LIGHTS, []))): light_select,
                 vol.Optional(CONF_SCAN_INTERVAL, default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(
                     vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS)
-                ),
-                vol.Optional(CONF_SIDES, default=current.get(CONF_SIDES, DEFAULT_SIDES)): selector.selector(
-                    {"select": {"options": sides_options, "multiple": True}}
                 ),
                 vol.Optional(CONF_TRANSITION, default=current.get(CONF_TRANSITION, DEFAULT_TRANSITION)): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=10)
