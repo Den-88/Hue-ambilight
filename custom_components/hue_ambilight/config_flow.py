@@ -149,6 +149,8 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_TV_PORT: self._tv_port,
                 CONF_USERNAME: self._client.username,
                 CONF_PASSWORD: self._client.password,
+                CONF_LIGHTS_LEFT_BOTTOM: user_input.get(CONF_LIGHTS_LEFT_BOTTOM, []),
+                CONF_LIGHTS_RIGHT_BOTTOM: user_input.get(CONF_LIGHTS_RIGHT_BOTTOM, []),
                 CONF_LIGHTS_LEFT: user_input.get(CONF_LIGHTS_LEFT, []),
                 CONF_LIGHTS_RIGHT: user_input.get(CONF_LIGHTS_RIGHT, []),
                 CONF_LIGHTS_TOP: user_input.get(CONF_LIGHTS_TOP, []),
@@ -172,20 +174,13 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
+                vol.Optional(CONF_LIGHTS_LEFT_BOTTOM, default=[]): light_select,
+                vol.Optional(CONF_LIGHTS_RIGHT_BOTTOM, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_LEFT, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_RIGHT, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_TOP, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_BOTTOM, default=[]): light_select,
                 vol.Optional(CONF_LIGHTS_ALL, default=[]): light_select,
-                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-                    vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL_MS, max=MAX_SCAN_INTERVAL_MS)
-                ),
-                vol.Optional(CONF_TRANSITION, default=DEFAULT_TRANSITION): vol.All(
-                    vol.Coerce(int), vol.Range(min=0, max=10)
-                ),
-                vol.Optional(CONF_BRIGHTNESS_FACTOR, default=DEFAULT_BRIGHTNESS_FACTOR): vol.All(
-                    vol.Coerce(float), vol.Range(min=0.1, max=2.0)
-                ),
             }
         )
 
@@ -221,6 +216,14 @@ class HueAmbilightOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema(
             {
+                vol.Optional(
+                    CONF_LIGHTS_LEFT_BOTTOM,
+                    default=current.get(CONF_LIGHTS_LEFT_BOTTOM, []),
+                ): light_select,
+                vol.Optional(
+                    CONF_LIGHTS_RIGHT_BOTTOM,
+                    default=current.get(CONF_LIGHTS_RIGHT_BOTTOM, []),
+                ): light_select,
                 vol.Optional(
                     CONF_LIGHTS_LEFT,
                     default=current.get(CONF_LIGHTS_LEFT, []),

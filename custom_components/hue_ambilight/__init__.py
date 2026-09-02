@@ -15,6 +15,8 @@ from .const import (
     CONF_USERNAME,
     CONF_PASSWORD,
     CONF_LIGHTS,
+    CONF_LIGHTS_LEFT_BOTTOM,
+    CONF_LIGHTS_RIGHT_BOTTOM,
     CONF_LIGHTS_LEFT,
     CONF_LIGHTS_RIGHT,
     CONF_LIGHTS_TOP,
@@ -72,6 +74,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         lights_top=cfg.get(CONF_LIGHTS_TOP, []),
         lights_bottom=cfg.get(CONF_LIGHTS_BOTTOM, []),
         lights_all=all_lights,
+        lights_left_bottom=cfg.get(CONF_LIGHTS_LEFT_BOTTOM, []),
+        lights_right_bottom=cfg.get(CONF_LIGHTS_RIGHT_BOTTOM, []),
     )
 
     # Initial data fetch (failure is OK — TV may be off)

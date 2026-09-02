@@ -32,6 +32,7 @@ from .philips_tv import (
     PhilipsTVError,
     parse_ambilight_colors,
     parse_ambilight_pixels,
+    extract_corner_diodes,
     average_colors,
 )
 
@@ -58,6 +59,8 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         lights_top: list[str] | None = None,
         lights_bottom: list[str] | None = None,
         lights_all: list[str] | None = None,
+        lights_left_bottom: list[str] | None = None,
+        lights_right_bottom: list[str] | None = None,
     ) -> None:
         self.client = client
         self.config_entry_id = config_entry_id
@@ -70,6 +73,8 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         self.lights_top = lights_top or []
         self.lights_bottom = lights_bottom or []
         self.lights_all = lights_all or target_lights or []
+        self.lights_left_bottom = lights_left_bottom or []
+        self.lights_right_bottom = lights_right_bottom or []
         self.sync_enabled = False
         self._last_color: tuple[int, int, int] = (0, 0, 0)
         self._last_data: dict[str, Any] = {
@@ -79,6 +84,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             "b": 0,
             "color_hex": "#000000",
             "sides_colors": {},
+            "corner_colors": {},
             "pixels": {},
         }
 
@@ -103,6 +109,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             return {**self._last_data, "online": False}
 
         side_colors = parse_ambilight_colors(raw, self.sides)
+        corner_colors = extract_corner_diodes(raw)
         pixels_data = parse_ambilight_pixels(raw)
         avg_r, avg_g, avg_b = average_colors(side_colors, self.sides)
 
@@ -115,6 +122,9 @@ class AmbilightCoordinator(DataUpdateCoordinator):
             "b": avg_b,
             "color_hex": color_hex,
             "sides_colors": {k: list(v) for k, v in side_colors.items()},
+            "corner_colors": {k: list(v) for k, v in corner_colors.items()},
+            "left_bottom_color": list(corner_colors.get("left_bottom", [0, 0, 0])),
+            "right_bottom_color": list(corner_colors.get("right_bottom", [0, 0, 0])),
             "pixels": pixels_data,
         }
         self._last_data = data
@@ -122,40 +132,50 @@ class AmbilightCoordinator(DataUpdateCoordinator):
 
         # Push colors per zone if sync is enabled
         if self.sync_enabled:
-            await self._push_zone_colors(side_colors, (avg_r, avg_g, avg_b))
+            await self._push_zone_colors(side_colors, corner_colors, (avg_r, avg_g, avg_b))
 
         return data
 
     async def _push_zone_colors(
         self,
         side_colors: dict[str, tuple[int, int, int]],
+        corner_colors: dict[str, tuple[int, int, int]],
         avg_color: tuple[int, int, int],
     ) -> None:
         """Push corresponding side colors to configured zone light entities."""
-        # 1. Left zone
+        # 1. Left bottom diode
+        if self.lights_left_bottom and "left_bottom" in corner_colors:
+            lbr, lbg, lbb = corner_colors["left_bottom"]
+            await self._push_color_to_lights(self.lights_left_bottom, lbr, lbg, lbb)
+
+        # 2. Right bottom diode
+        if self.lights_right_bottom and "right_bottom" in corner_colors:
+            rbr, rbg, rbb = corner_colors["right_bottom"]
+            await self._push_color_to_lights(self.lights_right_bottom, rbr, rbg, rbb)
+
+        # 3. Left zone
         if self.lights_left and "left" in side_colors:
             lr, lg, lb = side_colors["left"]
             await self._push_color_to_lights(self.lights_left, lr, lg, lb)
 
-        # 2. Right zone
+        # 4. Right zone
         if self.lights_right and "right" in side_colors:
             rr, rg, rb = side_colors["right"]
             await self._push_color_to_lights(self.lights_right, rr, rg, rb)
 
-        # 3. Top zone
+        # 5. Top zone
         if self.lights_top and "top" in side_colors:
             tr, tg, tb = side_colors["top"]
             await self._push_color_to_lights(self.lights_top, tr, tg, tb)
 
-        # 4. Bottom zone
+        # 6. Bottom zone
         if self.lights_bottom and "bottom" in side_colors:
             br, bg, bb = side_colors["bottom"]
             await self._push_color_to_lights(self.lights_bottom, br, bg, bb)
 
-        # 5. All zone (or legacy target_lights)
+        # 7. All zone (or legacy target_lights)
         all_target = self.lights_all or self.target_lights
         if all_target:
-            # If specific zone lights were pushed, avoid re-pushing to them if they are in all_target
             ar, ag, ab = avg_color
             await self._push_color_to_lights(all_target, ar, ag, ab)
 
@@ -219,6 +239,8 @@ class AmbilightCoordinator(DataUpdateCoordinator):
 
     def update_zone_lights(
         self,
+        lights_left_bottom: list[str],
+        lights_right_bottom: list[str],
         lights_left: list[str],
         lights_right: list[str],
         lights_top: list[str],
@@ -226,6 +248,8 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         lights_all: list[str],
     ) -> None:
         """Update zone light entity mappings."""
+        self.lights_left_bottom = lights_left_bottom
+        self.lights_right_bottom = lights_right_bottom
         self.lights_left = lights_left
         self.lights_right = lights_right
         self.lights_top = lights_top
