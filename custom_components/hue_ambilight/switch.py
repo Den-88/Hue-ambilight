@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SWITCH_DESCRIPTION = SwitchEntityDescription(
     key="ambilight_sync",
-    name="Ambilight Sync",
+    translation_key="ambilight_sync",
     icon="mdi:television-ambient-light",
 )
 

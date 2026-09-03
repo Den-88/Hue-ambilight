@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SENSOR_DESCRIPTION = SensorEntityDescription(
     key="ambilight_color",
-    name="Ambilight Color",
+    translation_key="ambilight_color",
     icon="mdi:palette",
     native_unit_of_measurement=None,
 )

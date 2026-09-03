@@ -79,7 +79,7 @@ class AmbilightScanIntervalNumber(AmbilightBaseNumber):
 
     entity_description = NumberEntityDescription(
         key="scan_interval",
-        name="Scan Interval (ms)",
+        translation_key="scan_interval",
         icon="mdi:timer-refresh-outline",
         native_min_value=MIN_SCAN_INTERVAL_MS,
         native_max_value=MAX_SCAN_INTERVAL_MS,
@@ -110,7 +110,7 @@ class AmbilightTransitionNumber(AmbilightBaseNumber):
 
     entity_description = NumberEntityDescription(
         key="transition",
-        name="Transition (sec)",
+        translation_key="transition",
         icon="mdi:transition",
         native_min_value=0.0,
         native_max_value=5.0,
@@ -141,7 +141,7 @@ class AmbilightBrightnessFactorNumber(AmbilightBaseNumber):
 
     entity_description = NumberEntityDescription(
         key="brightness_factor",
-        name="Brightness Factor",
+        translation_key="brightness_factor",
         icon="mdi:brightness-6",
         native_min_value=0.1,
         native_max_value=2.0,
