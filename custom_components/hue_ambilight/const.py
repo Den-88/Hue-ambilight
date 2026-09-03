@@ -18,6 +18,7 @@ CONF_SIDES = "sides"
 CONF_TRANSITION = "transition"
 CONF_BRIGHTNESS_FACTOR = "brightness_factor"
 CONF_COLOR_THRESHOLD = "color_threshold"
+CONF_SYNC_ENABLED = "sync_enabled"
 
 DEFAULT_PORT = 1926
 DEFAULT_SCAN_INTERVAL = 500  # ms
@@ -26,6 +27,7 @@ DEFAULT_SIDES = ["left", "right", "top", "bottom"]
 DEFAULT_TRANSITION = 0
 DEFAULT_BRIGHTNESS_FACTOR = 1.0
 DEFAULT_COLOR_THRESHOLD = 3
+DEFAULT_SYNC_ENABLED = True
 
 API_VERSION = 6
 
@@ -33,7 +35,7 @@ API_VERSION = 6
 SIDES = ["left", "right", "top", "bottom"]
 
 # Coordinator update interval in seconds (converted from ms)
-MIN_SCAN_INTERVAL_MS = 200
+MIN_SCAN_INTERVAL_MS = 100
 MAX_SCAN_INTERVAL_MS = 5000
 
 MIN_COLOR_THRESHOLD = 0

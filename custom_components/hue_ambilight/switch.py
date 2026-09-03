@@ -11,7 +11,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_TV_IP
+from .const import DOMAIN, CONF_TV_IP, CONF_SYNC_ENABLED
 from .coordinator import AmbilightCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,9 +80,17 @@ class AmbilightSyncSwitch(CoordinatorEntity[AmbilightCoordinator], SwitchEntity)
             "color_threshold": self.coordinator.color_threshold,
         }
 
+    async def _async_save_sync_state(self, enabled: bool) -> None:
+        """Save sync state into ConfigEntry options."""
+        current_options = dict(self._entry.options)
+        if current_options.get(CONF_SYNC_ENABLED) != enabled:
+            current_options[CONF_SYNC_ENABLED] = enabled
+            self.hass.config_entries.async_update_entry(self._entry, options=current_options)
+
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable Ambilight sync."""
         self.coordinator.enable_sync()
+        await self._async_save_sync_state(True)
         # Force immediate coordinator refresh
         await self.coordinator.async_request_refresh()
         self.async_write_ha_state()
@@ -90,4 +98,6 @@ class AmbilightSyncSwitch(CoordinatorEntity[AmbilightCoordinator], SwitchEntity)
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable Ambilight sync."""
         self.coordinator.disable_sync()
+        await self._async_save_sync_state(False)
         self.async_write_ha_state()
+

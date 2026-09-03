@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_SIDES,
     DEFAULT_COLOR_THRESHOLD,
     DEFAULT_STANDBY_SCAN_INTERVAL,
+    DEFAULT_SYNC_ENABLED,
     ATTR_COLOR_HEX,
     ATTR_COLOR_R,
     ATTR_COLOR_G,
@@ -58,6 +59,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         transition: float,
         brightness_factor: float,
         color_threshold: int = DEFAULT_COLOR_THRESHOLD,
+        sync_enabled: bool = DEFAULT_SYNC_ENABLED,
         lights_left: list[str] | None = None,
         lights_right: list[str] | None = None,
         lights_top: list[str] | None = None,
@@ -82,7 +84,7 @@ class AmbilightCoordinator(DataUpdateCoordinator):
         self.lights_all = lights_all or target_lights or []
         self.lights_left_bottom = lights_left_bottom or []
         self.lights_right_bottom = lights_right_bottom or []
-        self.sync_enabled = False
+        self.sync_enabled = sync_enabled
         self.tv_on: bool = False
         self._last_color: tuple[int, int, int] = (0, 0, 0)
         self._light_states: dict[str, dict[str, Any]] = {}
