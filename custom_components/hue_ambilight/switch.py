@@ -70,11 +70,14 @@ class AmbilightSyncSwitch(CoordinatorEntity[AmbilightCoordinator], SwitchEntity)
         data = self.coordinator.data or {}
         return {
             "tv_online": data.get("tv_online", False),
+            "tv_on": data.get("tv_on", False),
+            "powerstate": data.get("powerstate", "Off"),
             "current_color": data.get("color_hex", "#000000"),
             "target_lights": self.coordinator.target_lights,
             "sides": self.coordinator.sides,
             "scan_interval_ms": self.coordinator.update_interval.total_seconds() * 1000,
             "brightness_factor": self.coordinator.brightness_factor,
+            "color_threshold": self.coordinator.color_threshold,
         }
 
     async def async_turn_on(self, **kwargs: Any) -> None:

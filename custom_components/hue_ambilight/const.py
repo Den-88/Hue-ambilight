@@ -17,12 +17,15 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_SIDES = "sides"
 CONF_TRANSITION = "transition"
 CONF_BRIGHTNESS_FACTOR = "brightness_factor"
+CONF_COLOR_THRESHOLD = "color_threshold"
 
 DEFAULT_PORT = 1926
 DEFAULT_SCAN_INTERVAL = 500  # ms
+DEFAULT_STANDBY_SCAN_INTERVAL = 3000  # ms
 DEFAULT_SIDES = ["left", "right", "top", "bottom"]
 DEFAULT_TRANSITION = 0
 DEFAULT_BRIGHTNESS_FACTOR = 1.0
+DEFAULT_COLOR_THRESHOLD = 3
 
 API_VERSION = 6
 
@@ -33,11 +36,16 @@ SIDES = ["left", "right", "top", "bottom"]
 MIN_SCAN_INTERVAL_MS = 200
 MAX_SCAN_INTERVAL_MS = 5000
 
+MIN_COLOR_THRESHOLD = 0
+MAX_COLOR_THRESHOLD = 50
+
 ATTR_COLOR_HEX = "color_hex"
 ATTR_COLOR_R = "r"
 ATTR_COLOR_G = "g"
 ATTR_COLOR_B = "b"
 ATTR_SIDES_COLORS = "sides_colors"
 ATTR_TV_ONLINE = "tv_online"
+ATTR_TV_ON = "tv_on"
 
 PLATFORMS = ["switch", "sensor", "number"]
+

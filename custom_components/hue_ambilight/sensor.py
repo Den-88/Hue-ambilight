@@ -85,4 +85,6 @@ class AmbilightColorSensor(CoordinatorEntity[AmbilightCoordinator], SensorEntity
             "right_bottom_color": data.get("right_bottom_color"),
             "pixels": data.get("pixels", {}),
             "tv_online": data.get("online", False),
+            "tv_on": data.get("tv_on", False),
+            "powerstate": data.get("powerstate", "Off"),
         }

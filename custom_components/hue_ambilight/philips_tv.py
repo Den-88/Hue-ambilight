@@ -243,6 +243,87 @@ class PhilipsTVClient:
 
         return self.get_ambilight_measured()
 
+    def get_powerstate(self) -> str | None:
+        """
+        Get TV power state (e.g. 'On', 'Standby', 'Off').
+        Returns None if TV does not support endpoint or is offline.
+        """
+        try:
+            data = self._get("powerstate")
+            if isinstance(data, dict):
+                return data.get("powerstate")
+        except PhilipsTVOfflineError:
+            return "Off"
+        except Exception as err:
+            _LOGGER.debug("Failed to get powerstate: %s", err)
+        return None
+
+    def is_tv_on(self) -> bool:
+        """
+        Check if the TV is turned on (not in standby, off, or unreachable).
+        """
+        powerstate = self.get_powerstate()
+        if powerstate:
+            return powerstate.lower() == "on"
+
+        # Fallback to ambilight/power if powerstate endpoint is not available
+        try:
+            amb_power = self.get_ambilight_power()
+            if isinstance(amb_power, dict) and "power" in amb_power:
+                return amb_power["power"].lower() == "on"
+        except Exception:
+            pass
+
+        return self.is_online()
+
+    def fetch_ambilight_state(self) -> dict[str, Any]:
+        """
+        Fetch ambilight colors and power status in a single executor call.
+        Returns dict with:
+          - 'online': bool
+          - 'tv_on': bool
+          - 'powerstate': str | None
+          - 'raw_colors': dict | None
+        """
+        try:
+            raw = self.get_ambilight_colors()
+        except PhilipsTVOfflineError:
+            return {"online": False, "tv_on": False, "powerstate": "Off", "raw_colors": None}
+        except PhilipsTVError as err:
+            _LOGGER.debug("Ambilight API error during fetch: %s", err)
+            return {"online": False, "tv_on": False, "powerstate": "Unknown", "raw_colors": None}
+
+        # Check if received colors are non-zero
+        colors = parse_ambilight_colors(raw)
+        has_active_color = any(r > 0 or g > 0 or b > 0 for r, g, b in colors.values())
+
+        if has_active_color:
+            # Active ambilight colors mean the screen is definitely displaying content
+            return {"online": True, "tv_on": True, "powerstate": "On", "raw_colors": raw}
+
+        # Colors are all zero: check if TV is actually on (black screen) or in Standby
+        pstate = self.get_powerstate()
+        if pstate:
+            is_on = pstate.lower() == "on"
+            return {"online": True, "tv_on": is_on, "powerstate": pstate, "raw_colors": raw}
+
+        # Fallback to ambilight/power
+        try:
+            amb_power = self.get_ambilight_power()
+            if isinstance(amb_power, dict) and "power" in amb_power:
+                is_on = amb_power["power"].lower() == "on"
+                return {
+                    "online": True,
+                    "tv_on": is_on,
+                    "powerstate": "On" if is_on else "Standby",
+                    "raw_colors": raw,
+                }
+        except Exception:
+            pass
+
+        # If we cannot determine power state and colors are all 0, assume TV is on black screen
+        return {"online": True, "tv_on": True, "powerstate": "Unknown", "raw_colors": raw}
+
     def get_ambilight_power(self) -> dict[str, Any]:
         """Get ambilight power state."""
         return self._get("ambilight/power")

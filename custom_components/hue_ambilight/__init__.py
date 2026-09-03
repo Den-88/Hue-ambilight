@@ -26,11 +26,13 @@ from .const import (
     CONF_SIDES,
     CONF_TRANSITION,
     CONF_BRIGHTNESS_FACTOR,
+    CONF_COLOR_THRESHOLD,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SIDES,
     DEFAULT_TRANSITION,
     DEFAULT_BRIGHTNESS_FACTOR,
+    DEFAULT_COLOR_THRESHOLD,
 )
 from .philips_tv import PhilipsTVClient, PhilipsTVOfflineError
 from .coordinator import AmbilightCoordinator
@@ -69,6 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         target_lights=all_lights,
         transition=cfg.get(CONF_TRANSITION, DEFAULT_TRANSITION),
         brightness_factor=cfg.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
+        color_threshold=cfg.get(CONF_COLOR_THRESHOLD, DEFAULT_COLOR_THRESHOLD),
         lights_left=cfg.get(CONF_LIGHTS_LEFT, []),
         lights_right=cfg.get(CONF_LIGHTS_RIGHT, []),
         lights_top=cfg.get(CONF_LIGHTS_TOP, []),
@@ -77,6 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         lights_left_bottom=cfg.get(CONF_LIGHTS_LEFT_BOTTOM, []),
         lights_right_bottom=cfg.get(CONF_LIGHTS_RIGHT_BOTTOM, []),
     )
+
 
     # Initial data fetch (failure is OK — TV may be off)
     await coordinator.async_refresh()

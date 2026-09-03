@@ -28,11 +28,13 @@ from .const import (
     CONF_SIDES,
     CONF_TRANSITION,
     CONF_BRIGHTNESS_FACTOR,
+    CONF_COLOR_THRESHOLD,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SIDES,
     DEFAULT_TRANSITION,
     DEFAULT_BRIGHTNESS_FACTOR,
+    DEFAULT_COLOR_THRESHOLD,
     MIN_SCAN_INTERVAL_MS,
     MAX_SCAN_INTERVAL_MS,
 )
@@ -170,6 +172,7 @@ class HueAmbilightConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SIDES: DEFAULT_SIDES,
                 CONF_TRANSITION: user_input.get(CONF_TRANSITION, DEFAULT_TRANSITION),
                 CONF_BRIGHTNESS_FACTOR: user_input.get(CONF_BRIGHTNESS_FACTOR, DEFAULT_BRIGHTNESS_FACTOR),
+                CONF_COLOR_THRESHOLD: user_input.get(CONF_COLOR_THRESHOLD, DEFAULT_COLOR_THRESHOLD),
             }
             return self.async_create_entry(
                 title=f"Ambilight Sync ({self._tv_ip})",

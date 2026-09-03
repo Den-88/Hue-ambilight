@@ -21,11 +21,15 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TRANSITION,
     CONF_BRIGHTNESS_FACTOR,
+    CONF_COLOR_THRESHOLD,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRANSITION,
     DEFAULT_BRIGHTNESS_FACTOR,
+    DEFAULT_COLOR_THRESHOLD,
     MIN_SCAN_INTERVAL_MS,
     MAX_SCAN_INTERVAL_MS,
+    MIN_COLOR_THRESHOLD,
+    MAX_COLOR_THRESHOLD,
 )
 from .coordinator import AmbilightCoordinator
 
@@ -44,8 +48,10 @@ async def async_setup_entry(
             AmbilightScanIntervalNumber(coordinator, entry),
             AmbilightTransitionNumber(coordinator, entry),
             AmbilightBrightnessFactorNumber(coordinator, entry),
+            AmbilightColorThresholdNumber(coordinator, entry),
         ]
     )
+
 
 
 class AmbilightBaseNumber(CoordinatorEntity[AmbilightCoordinator], NumberEntity):
@@ -165,3 +171,34 @@ class AmbilightBrightnessFactorNumber(AmbilightBaseNumber):
         val_float = round(float(value), 2)
         self.coordinator.update_brightness_factor(val_float)
         await self._async_save_option(CONF_BRIGHTNESS_FACTOR, val_float)
+
+
+class AmbilightColorThresholdNumber(AmbilightBaseNumber):
+    """Number entity for color change deadband threshold."""
+
+    entity_description = NumberEntityDescription(
+        key="color_threshold",
+        translation_key="color_threshold",
+        icon="mdi:palette-swatch-outline",
+        native_min_value=MIN_COLOR_THRESHOLD,
+        native_max_value=MAX_COLOR_THRESHOLD,
+        native_step=1,
+        mode=NumberMode.SLIDER,
+    )
+
+    def __init__(self, coordinator: AmbilightCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_color_threshold"
+
+    @property
+    def native_value(self) -> float:
+        """Return current color threshold."""
+        cfg = {**self._entry.data, **self._entry.options}
+        return float(cfg.get(CONF_COLOR_THRESHOLD, DEFAULT_COLOR_THRESHOLD))
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Update color change threshold."""
+        val_int = int(value)
+        self.coordinator.update_color_threshold(val_int)
+        await self._async_save_option(CONF_COLOR_THRESHOLD, val_int)
+

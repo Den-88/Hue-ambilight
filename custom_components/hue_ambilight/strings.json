@@ -72,6 +72,9 @@
       },
       "brightness_factor": {
         "name": "Множитель яркости"
+      },
+      "color_threshold": {
+        "name": "Порог изменения цвета"
       }
     }
   }
